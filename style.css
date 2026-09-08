@@ -3,6 +3,25 @@ body {
     margin: 30px;
 }
 
+
+.toolbar {
+    margin-bottom: 12px;
+}
+
+canvas {
+    width: 800px;
+    height: 600px;
+
+    border: 1px solid black;
+
+    image-rendering: pixelated;
+
+    cursor: crosshair;
+
+    touch-action: none;
+}
+
 button {
     padding: 8px 12px;
+    margin-right: 5px;
 }
