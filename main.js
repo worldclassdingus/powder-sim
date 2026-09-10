@@ -2,7 +2,7 @@
 
 // pixel/powder types
 const EMPTY = 0;
-const POWDER = 1;
+const SAND = 1;
 
 // DOM elements
 const canvas = document.getElementById("canvas");
@@ -10,17 +10,60 @@ const ctx = canvas.getContext("2d");
 const drawButton = document.getElementById("drawButton");
 const eraseButton = document.getElementById("eraseButton");
 const clearButton = document.getElementById("clearButton");
+const stepButton = document.getElementById("stepButton");
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-let currentMaterial = POWDER;
+let currentMaterial = SAND;
 let pointerDown = false;
 
 // stores the 2d canvas as a 1d array.
 // rows are stored sequentially
 // (x, y) translates to y * WIDTH + x
 const cells = new Uint8Array(WIDTH * HEIGHT);
+
+function step() {
+    console.log("simulation step");
+
+    for (let y = HEIGHT - 2; y >= 0; y--) {
+        for (let x = 0; x < WIDTH; x++) {
+
+            const cell = findIndex(x, y);
+
+            if (cells[cell] === SAND) {
+                updateSand(x, y);
+            }
+        }
+    }
+}
+
+function stepOnce() {
+    step();
+    render();
+}
+
+function updateSand(x, y) {
+    const below = y + 1;
+
+    if (isEmpty(x, below)) {
+        moveCell(x, y, x, below);
+    }
+}
+
+function moveCell(fromX, fromY, toX, toY) {
+    const from = findIndex(fromX, fromY);
+    const to = findIndex(toX, toY);
+
+    cells[to] = cells[from];
+    cells[from] = EMPTY;
+}
+
+function isEmpty(x, y) {
+    if (!insideCanvas(x, y)) { return false; }
+
+    return ( cells[findIndex(x, y)] === EMPTY );
+}
 
 function insideCanvas(x, y) {
     return (
@@ -55,7 +98,7 @@ function render() {
 
             const i = findIndex(x, y);
 
-            if (cells[i] === POWDER) {
+            if (cells[i] === SAND) {
                 ctx.fillRect(x, y, 1, 1);
             }
 
@@ -117,11 +160,11 @@ function handlePointerUp(event) {
 }
 
 function chooseDraw() {
-    currentMaterial = POWDER;
+    currentMaterial = SAND;
 }
 
 function chooseErase() {
-    currentMaterial = EMPTY;;
+    currentMaterial = EMPTY;
 }
 
 function clearCanvas() {
@@ -138,5 +181,6 @@ window.addEventListener("pointerup", handlePointerUp);
 drawButton.addEventListener("click", chooseDraw);
 eraseButton.addEventListener("click", chooseErase);
 clearButton.addEventListener("click", clearCanvas);
+stepButton.addEventListener("click", stepOnce);
 
 render();
