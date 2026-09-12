@@ -24,11 +24,17 @@ const stepButton = document.getElementById("stepButton");
 const statusIndicator = document.getElementById("statusIndicator");
 const runButton = document.getElementById("runButton");
 
+const brushSizeInput = document.getElementById("brushSize");
+const brushSizeValue = document.getElementById("brushSizeValue");
+
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
 let currentMaterial = SAND;
 let pointerDown = false;
+let lastPaintCell = null;
+
+let brushRadius = Number(brushSizeInput.value);
 
 let tickCount = 0;
 let running = false;
@@ -41,6 +47,70 @@ const cells = new Uint8Array(WIDTH * HEIGHT);
 // tracks cells that have had materials moved into them
 // prevents the same pixel from being moved multiple times in one tick
 const updated = new Uint8Array(WIDTH * HEIGHT);
+
+function materialName(material) {
+    switch(material) {
+        case SAND:
+            return "Sand";
+        case WATER:
+            return "Water";
+        case WALL:
+            return "Wall";
+        case EMPTY:
+            return "Eraser";
+        default:
+            return "Unknown";
+    }
+}
+
+function chooseMaterial(material) {
+    currentMaterial = material;
+    render();
+}
+
+function paintLine(x0, y0, x1, y1) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+
+    const steps = Math.max(
+        Math.abs(dx),
+        Math.abs(dy)
+    );
+
+    if (steps === 0) {
+        paintBrush(x0, y0);
+        return;
+    }
+
+    for (let i = 0; i < steps; i++) {
+        const t = i / steps;
+
+        const x = Math.round(x0 + dx * t);
+        const y = Math.round(y0 + dy * t);
+
+        paintBrush(x, y);
+    }
+
+
+}
+
+function paintBrush(centerX, centerY) {
+    for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+        for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+
+            // paint in a circle
+            if (dx * dx + dy * dy > brushRadius * brushRadius) { continue; }
+
+            const x = centerX + dx;
+            const y = centerY + dy;
+
+            if (!insideCanvas(x, y)) { continue; }
+
+            cells[findIndex(x, y)] = currentMaterial;
+
+        }
+    }
+}
 
 function updateMaterial(x, y) {
     const material = cells[findIndex(x, y)];
@@ -82,6 +152,16 @@ function countMaterial(material) {
     return count;
 }
 
+function countNonEmpty() {
+    let count = 0;
+
+    for (let i = 0; i < cells.length; i++) {
+        if (cells[i] !== EMPTY) { count++; }
+    }
+
+    return count;
+}
+
 function toggleRunning() {
     running = !running;
 
@@ -93,7 +173,10 @@ function updateStatus() {
     const sandCount = countMaterial(SAND);
 
     statusIndicator.textContent = (
-        `${state} | Tick: ${tickCount} | Sand: ${sandCount}`
+        `${state} | `
+        + `Tick: ${tickCount} | `
+        + `Material: ${materialName(currentMaterial)} | `
+        + `Brush: ${brushRadius}`
     );
 }
 
@@ -187,10 +270,13 @@ function paint(event) {
 
     if (!insideCanvas(cell.x, cell.y)) { return; }
 
-    const i = findIndex(cell.x, cell.y);
+    if (lastPaintCell === null) {
+        paintBrush(cell.x, cell.y);
+    } else {
+        paintLine(lastPaintCell.x, lastPaintCell.y, cell.x, cell.y);
+    }
 
-    cells[i] = currentMaterial;
-
+    lastPaintCell = cell;
     render();
 }
 
@@ -257,6 +343,9 @@ function pointerToCell(event) {
 
 function handlePointerDown(event) {
     pointerDown = true;
+    lastPaintCell = null;
+
+    canvas.setPointerCapture(event.pointerId);
 
     paint(event);
 }
@@ -269,6 +358,12 @@ function handlePointerMove(event) {
 
 function handlePointerUp(event) {
     pointerDown = false;
+    lastPaintCell = null;
+}
+
+function finishPointer() {
+    pointerDown = false;
+    lastPaintCell = null;
 }
 
 function chooseDraw() {
@@ -320,15 +415,22 @@ requestAnimationFrame(frame);
 
 canvas.addEventListener("pointerdown", handlePointerDown);
 canvas.addEventListener("pointermove", handlePointerMove);
+canvas.addEventListener("pointerup", finishPointer);
+canvas.addEventListener("pointercancel", finishPointer);
 window.addEventListener("pointerup", handlePointerUp);
 
-sandButton.addEventListener("click", () => { currentMaterial = SAND; });
-waterButton.addEventListener("click", () => { currentMaterial = WATER; });
-wallButton.addEventListener("click", () => { currentMaterial = WALL; });
+sandButton.addEventListener("click", () => chooseMaterial(SAND));
+waterButton.addEventListener("click", () => chooseMaterial(WATER));
+wallButton.addEventListener("click", () => chooseMaterial(WALL));
 
-eraseButton.addEventListener("click", chooseErase);
+eraseButton.addEventListener("click", () => chooseMaterial(EMPTY));
 clearButton.addEventListener("click", clearCanvas);
 stepButton.addEventListener("click", stepOnce);
 runButton.addEventListener("click", toggleRunning);
+
+brushSizeInput.addEventListener("input", () => {
+    brushRadius = Number(brushSizeInput.value);
+    brushSizeValue.textContent = String(brushRadius);
+});
 
 render();
