@@ -5,6 +5,7 @@ const EMPTY = 0;
 const SAND = 1;
 const WATER = 2;
 const WALL = 3;
+const CONCRETE = 4;
 
 // framerate
 const STEPS_PER_SECOND = 60;
@@ -17,6 +18,7 @@ const ctx = canvas.getContext("2d");
 const sandButton = document.getElementById("sandButton");
 const waterButton = document.getElementById("waterButton");
 const wallButton = document.getElementById("wallButton");
+const concreteButton = document.getElementById("concreteButton");
 
 const eraseButton = document.getElementById("eraseButton");
 const clearButton = document.getElementById("clearButton");
@@ -58,6 +60,8 @@ function materialName(material) {
             return "Wall";
         case EMPTY:
             return "Eraser";
+        case CONCRETE:
+            return "Concrete";
         default:
             return "Unknown";
     }
@@ -124,6 +128,9 @@ function updateMaterial(x, y) {
             break;
         case WALL:
             break;
+        case CONCRETE:
+            updateConcrete(x, y);
+            break;
 
     }
 }
@@ -136,6 +143,8 @@ function materialColor(material) {
             return "#3f7fe8";
         case WALL:
             return "#666666";
+        case CONCRETE:
+            return "#2c2f35";
 
         default:
             return null;
@@ -204,6 +213,33 @@ function stepOnce() {
     render();
 
     tickCount++;
+}
+
+function getMaterial(x, y) {
+    if (!insideCanvas(x, y)) { return null; }
+
+    return cells[findIndex(x, y)];
+}
+
+function updateConcrete(x, y) {
+    const below = y + 1;
+
+    const tryCrumble = false /* Math.random() < 0.1 */;
+    
+    if (getMaterial(x - 1, y) === CONCRETE && getMaterial(x + 1, y) === CONCRETE) { return; }
+
+    if (isEmpty(x, below)) {
+        moveCell(x, y, x, below);
+    } else if (tryCrumble) {
+        const firstDir = Math.random() < 0.5 ? -1 : 1;
+        const secondDir = -firstDir;
+
+        if (isEmpty(x + firstDir, below)) {
+            moveCell(x, y, x + firstDir, below);
+        } else if (isEmpty(x + secondDir, below)) {
+            moveCell(x, y, x + secondDir, below);
+        }
+    }
 }
 
 function updateWater(x, y) {
@@ -422,6 +458,7 @@ window.addEventListener("pointerup", handlePointerUp);
 sandButton.addEventListener("click", () => chooseMaterial(SAND));
 waterButton.addEventListener("click", () => chooseMaterial(WATER));
 wallButton.addEventListener("click", () => chooseMaterial(WALL));
+concreteButton.addEventListener("click", () => chooseMaterial(CONCRETE));
 
 eraseButton.addEventListener("click", () => chooseMaterial(EMPTY));
 clearButton.addEventListener("click", clearCanvas);
