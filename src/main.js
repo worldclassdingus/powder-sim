@@ -1,12 +1,18 @@
 "use strict";
 
-// pixel/powder types
-const EMPTY = 0;
-const SAND = 1;
-const WATER = 2;
-const WALL = 3;
-const CONCRETE = 4;
-const OIL = 5;
+import {
+    EMPTY,
+    SAND,
+    WATER,
+    WALL,
+    CONCRETE,
+    OIL,
+    materialName,
+    materialColor,
+    materialDensity,
+    isDisplaceable
+} from "./materials.js";
+import { Simulation } from "./simulation.js";
 
 // framerate
 const STEPS_PER_SECOND = 60;
@@ -94,48 +100,6 @@ function canDisplace(movingMaterial, targetMaterial) {
     return (materialDensity(movingMaterial) > materialDensity(targetMaterial));
 }
 
-function isDisplaceable(material) {
-    return (
-        material === WATER ||
-        material === OIL
-    );
-}
-
-function materialDensity(material) {
-    switch(material) {
-        case OIL:
-            return 1;
-        case WATER:
-            return 2;
-        case SAND:
-            return 3;
-        case CONCRETE:
-            return 3;
-
-        default:
-            return 0;
-    }
-}
-
-function materialName(material) {
-    switch(material) {
-        case SAND:
-            return "Sand";
-        case WATER:
-            return "Water";
-        case WALL:
-            return "Wall";
-        case EMPTY:
-            return "Eraser";
-        case CONCRETE:
-            return "Concrete";
-        case OIL:
-            return "Oil";
-        default:
-            return "Unknown";
-    }
-}
-
 function chooseMaterial(material) {
     currentMaterial = material;
     render();
@@ -201,24 +165,6 @@ function updateMaterial(x, y) {
         case CONCRETE:
             updateConcrete(x, y);
 
-    }
-}
-
-function materialColor(material) {
-    switch(material) {
-        case SAND:
-            return "#d8b45a";
-        case WATER:
-            return "#3f7fe8";
-        case WALL:
-            return "#666666";
-        case CONCRETE:
-            return "#2c2f35";
-        case OIL:
-            return "#886524";
-
-        default:
-            return null;
     }
 }
 
