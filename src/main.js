@@ -6,6 +6,7 @@ const SAND = 1;
 const WATER = 2;
 const WALL = 3;
 const CONCRETE = 4;
+const OIL = 5;
 
 // framerate
 const STEPS_PER_SECOND = 60;
@@ -19,6 +20,7 @@ const sandButton = document.getElementById("sandButton");
 const waterButton = document.getElementById("waterButton");
 const wallButton = document.getElementById("wallButton");
 const concreteButton = document.getElementById("concreteButton");
+const oilButton = document.getElementById("oilButton");
 
 const eraseButton = document.getElementById("eraseButton");
 const clearButton = document.getElementById("clearButton");
@@ -50,6 +52,71 @@ const cells = new Uint8Array(WIDTH * HEIGHT);
 // prevents the same pixel from being moved multiple times in one tick
 const updated = new Uint8Array(WIDTH * HEIGHT);
 
+function tryMoveIntoEmpty(fromX, fromY, toX, toY) {
+    if (!insideCanvas(toX, toY)) { return false; }
+
+    const from = findIndex(fromX, fromY);
+    const to = findIndex(toX, toY);
+
+    if (updated[to]) { return false; }
+
+    if (cells[to] === EMPTY) {
+        moveCell(fromX, fromY, toX, toY);
+        return true;
+    }
+
+    return false;
+
+}
+
+function tryMove(fromX, fromY, toX, toY) {
+    if (!insideCanvas(toX, toY)) { return false; }
+
+    const from = findIndex(fromX, fromY);
+    const to = findIndex(toX, toY);
+
+    if (updated[to]) { return false; }
+
+    if (cells[to] === EMPTY) {
+        moveCell(fromX, fromY, toX, toY);
+        return true;
+    } else if (canDisplace(cells[from], cells[to])) {
+        swapCells(fromX, fromY, toX, toY);
+        return true;
+    }
+
+    return false;
+}
+
+function canDisplace(movingMaterial, targetMaterial) {
+    if (!isDisplaceable(targetMaterial)) { return false; }
+
+    return (materialDensity(movingMaterial) > materialDensity(targetMaterial));
+}
+
+function isDisplaceable(material) {
+    return (
+        material === WATER ||
+        material === OIL
+    );
+}
+
+function materialDensity(material) {
+    switch(material) {
+        case OIL:
+            return 1;
+        case WATER:
+            return 2;
+        case SAND:
+            return 3;
+        case CONCRETE:
+            return 3;
+
+        default:
+            return 0;
+    }
+}
+
 function materialName(material) {
     switch(material) {
         case SAND:
@@ -62,6 +129,8 @@ function materialName(material) {
             return "Eraser";
         case CONCRETE:
             return "Concrete";
+        case OIL:
+            return "Oil";
         default:
             return "Unknown";
     }
@@ -124,13 +193,13 @@ function updateMaterial(x, y) {
             updateSand(x, y);
             break;
         case WATER:
-            updateWater(x, y);
+        case OIL:
+            updateLiquid(x, y);
             break;
         case WALL:
             break;
         case CONCRETE:
             updateConcrete(x, y);
-            break;
 
     }
 }
@@ -145,6 +214,8 @@ function materialColor(material) {
             return "#666666";
         case CONCRETE:
             return "#2c2f35";
+        case OIL:
+            return "#886524";
 
         default:
             return null;
@@ -221,25 +292,29 @@ function getMaterial(x, y) {
     return cells[findIndex(x, y)];
 }
 
-function updateConcrete(x, y) {
+function updateLiquid(x, y) {
     const below = y + 1;
 
-    const tryCrumble = false /* Math.random() < 0.1 */;
-    
+    if (tryMove(x, y, x, below)) { return; }
+
+    const firstDir = Math.random() < 0.5 ? -1 : 1;
+
+    if (tryMove(x, y, x + firstDir, below)) { return; }
+    if (tryMove(x, y, x - firstDir, below)) { return; }
+    if (tryMoveIntoEmpty(x, y, x + firstDir, y)) { return; }
+    if (tryMoveIntoEmpty(x, y, x - firstDir, y)) { return; }
+}
+
+function updateOil(x, y) {
+
+}
+
+function updateConcrete(x, y) {
+    const below = y + 1;
+        
     if (getMaterial(x - 1, y) === CONCRETE && getMaterial(x + 1, y) === CONCRETE) { return; }
 
-    if (isEmpty(x, below)) {
-        moveCell(x, y, x, below);
-    } else if (tryCrumble) {
-        const firstDir = Math.random() < 0.5 ? -1 : 1;
-        const secondDir = -firstDir;
-
-        if (isEmpty(x + firstDir, below)) {
-            moveCell(x, y, x + firstDir, below);
-        } else if (isEmpty(x + secondDir, below)) {
-            moveCell(x, y, x + secondDir, below);
-        }
-    }
+    tryMove(x, y, x, below)
 }
 
 function updateWater(x, y) {
@@ -264,16 +339,24 @@ function updateWater(x, y) {
 function updateSand(x, y) {
     const below = y + 1;
 
-    const firstDir = Math.random() < 0.5 ? -1 : 1;
-    const secondDir = -firstDir;
+    if (tryMove(x, y, x, below)) { return; }
 
-    if (isEmpty(x, below)) {
-        moveCell(x, y, x, below);
-    } else if (isEmpty(x + firstDir, below)) {
-        moveCell(x, y, x + firstDir, below);
-    } else if (isEmpty(x + secondDir, below)) {
-        moveCell(x, y, x + secondDir, below);
-    }
+    const firstDir = Math.random() < 0.5 ? -1 : 1;
+
+    if (tryMove(x, y, x + firstDir, below)) { return; }
+    if (tryMove(x, y, x - firstDir, below)) { return; }
+}
+
+function swapCells(x1, y1, x2, y2) {
+    const i1 = findIndex(x1, y1);
+    const i2 = findIndex(x2, y2);
+
+    const temp = cells[i2];
+    cells[i2] = cells[i1];
+    cells[i1] = temp;
+
+    updated[i1] = 1;
+    updated[i2] = 1;
 }
 
 function moveCell(fromX, fromY, toX, toY) {
@@ -459,6 +542,7 @@ sandButton.addEventListener("click", () => chooseMaterial(SAND));
 waterButton.addEventListener("click", () => chooseMaterial(WATER));
 wallButton.addEventListener("click", () => chooseMaterial(WALL));
 concreteButton.addEventListener("click", () => chooseMaterial(CONCRETE));
+oilButton.addEventListener("click", () => chooseMaterial(OIL));
 
 eraseButton.addEventListener("click", () => chooseMaterial(EMPTY));
 clearButton.addEventListener("click", clearCanvas);
