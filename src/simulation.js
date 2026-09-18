@@ -16,8 +16,16 @@ export class Simulation {
     constructor(width, height) {
         this.width = width;
         this.height = height;
+
+        // stores the 2d canvas as a 1d array
+        // rows are stored sequentially
+        // (x, y) translates to y * WIDTH + x
         this.cells = new Uint8Array(width * height);
+
+        // tracks cells that have had materials moved into them
+        // prevents the same pixel from being moved multiple times in one tick
         this.updated = new Uint8Array(width * height);
+
         this.tickCount = 0;
     }
 
@@ -43,6 +51,16 @@ export class Simulation {
 
         return count;
     }
+    
+    countNonEmpty() {
+        let count = 0;
+
+        for (let i = 0; i < this.cells.length; i++) {
+            if (this.cells[i] !== EMPTY) { count++; }
+        }
+
+        return count;
+    }
 
     moveCell(fromX, fromY, toX, toY) {
         const from = this.index(fromX, fromY);
@@ -51,7 +69,7 @@ export class Simulation {
         this.cells[to] = this.cells[from];
         this.cells[from] = EMPTY;
     
-        updated[to] = 1;
+        this.updated[to] = 1;
     }
 
     swapCells(x1, y1, x2, y2) {
@@ -160,11 +178,17 @@ export class Simulation {
     }
 
     getCell(x, y) {
+        if (!this.insideCanvas(x, y)) { return false; }
         return this.cells[this.index(x, y)];
     }
 
     setCell(x, y, material) {
+        if (!this.insideCanvas(x, y)) { return false; }
         this.cells[this.index(x, y)] = material;
+    }
+
+    getTickCount() {
+        return this.tickCount;
     }
 
     paintBrush(centerX, centerY, radius, material) {
@@ -187,8 +211,9 @@ export class Simulation {
 
     step() {
         this.updated.fill(0);
+        this.tickCount++;
 
-        for (let y = this.height - 1; y >= 0; y++) {
+        for (let y = this.height - 1; y >= 0; y--) {
             for (let x = 0; x < this.width; x++) {
                 const i = this.index(x, y);
 
