@@ -1,31 +1,31 @@
 "use strict";
 
+import { Material } from "./materials";
+import type { Simulation } from "./simulation";
 
+interface Point {
+    readonly x: number;
+    readonly y: number;
+}
 
 export class InputController {
+    private lastPaintCell: Point | null = null;
+    private pointerDown: boolean = false;
+
     constructor(
-        canvas, simulation,
-        currentMaterialCallback,
-        brushSizeCallback,
-        renderCallback
+        private readonly canvas: HTMLCanvasElement,
+        private readonly simulation: Simulation,
+        private readonly currentMaterial: () => Material,
+        private readonly brushSize: () => number,
+        private readonly render: () => void,
     ) {
-        this.canvas = canvas;
-        this.simulation = simulation;
-
-        this.currentMaterial = currentMaterialCallback;
-        this.brushSize = brushSizeCallback;
-        this.render = renderCallback;
-
-        this.lastPaintCell = null;
-        this.pointerDown = false;
-
         this.canvas.addEventListener("pointerdown", event => this.handlePointerDown(event));
         this.canvas.addEventListener("pointermove", event => this.handlePointerMove(event));
         this.canvas.addEventListener("pointerup", () => this.finishPointer());
         this.canvas.addEventListener("pointercancel", () => this.finishPointer());
     }
 
-    pointerToCell(event) {
+    pointerToCell(event: PointerEvent): Point {
         const canvasRect = this.canvas.getBoundingClientRect();
 
         // calculate coordinates in terms of the canvas.
@@ -47,7 +47,7 @@ export class InputController {
         return {x, y};
     }
 
-    paintLine(x0, y0, x1, y1) {
+    paintLine(x0: number, y0: number, x1: number, y1: number): void {
         const brsh = this.brushSize();
         const mtrl = this.currentMaterial();
 
@@ -76,7 +76,7 @@ export class InputController {
 
     }
 
-    paint(event) {
+    paint(event: PointerEvent): void {
         const brsh = this.brushSize();
         const mtrl = this.currentMaterial();
 
@@ -94,7 +94,7 @@ export class InputController {
         this.render();
     }
 
-    handlePointerDown(event) {
+    handlePointerDown(event: PointerEvent): void {
         this.pointerDown = true;
         this.lastPaintCell = null;
 
@@ -103,13 +103,13 @@ export class InputController {
         this.paint(event);
     }
 
-    handlePointerMove(event) {
+    handlePointerMove(event: PointerEvent): void {
         if (this.pointerDown) {
             this.paint(event);
         }
     }
 
-    finishPointer() {
+    finishPointer(): void {
         this.pointerDown = false;
         this.lastPaintCell = null;
     }

@@ -2,18 +2,21 @@
 "use strict";
 
 import {
-    EMPTY,
-    SAND,
-    WATER,
-    WALL,
-    CONCRETE,
-    OIL,
-    materialDensity,
-    isDisplaceable
+    Material,
+    MATERIAL_DEFINITIONS
 } from "./materials.js";
 
 export class Simulation {
-    constructor(width, height) {
+    readonly width: number;
+    readonly height: number;
+
+    readonly cells: Uint8Array;
+    
+    tickCount: number = 0;
+
+    private readonly updated: Uint8Array;
+
+    constructor(width: number, height: number) {
         this.width = width;
         this.height = height;
 
@@ -29,11 +32,11 @@ export class Simulation {
         this.tickCount = 0;
     }
 
-    index(x, y) {
+    index(x: number, y: number): number {
         return y * this.width + x;
     }
 
-    insideCanvas(x, y) {
+    insideCanvas(x: number, y: number): boolean {
         return (
             x >= 0
             && x < this.width
@@ -42,7 +45,7 @@ export class Simulation {
         );
     }
 
-    countMaterial(material) {
+    countMaterial(material: Material): number {
         let count = 0;
 
         for (let i = 0; i < this.cells.length; i++) {
@@ -52,27 +55,27 @@ export class Simulation {
         return count;
     }
     
-    countNonEmpty() {
+    countNonEmpty(): number {
         let count = 0;
 
         for (let i = 0; i < this.cells.length; i++) {
-            if (this.cells[i] !== EMPTY) { count++; }
+            if (this.cells[i] !== Material.Empty) { count++; }
         }
 
         return count;
     }
 
-    moveCell(fromX, fromY, toX, toY) {
+    private moveCell(fromX: number, fromY: number, toX: number, toY: number): void {
         const from = this.index(fromX, fromY);
         const to = this.index(toX, toY);
     
         this.cells[to] = this.cells[from];
-        this.cells[from] = EMPTY;
+        this.cells[from] = Material.Empty;
     
         this.updated[to] = 1;
     }
 
-    swapCells(x1, y1, x2, y2) {
+    private swapCells(x1: number, y1: number, x2: number, y2: number): void {
         const i1 = this.index(x1, y1);
         const i2 = this.index(x2, y2);
 
@@ -84,7 +87,7 @@ export class Simulation {
         this.updated[i2] = 1;
     }
 
-    tryMove(fromX, fromY, toX, toY) {
+    private tryMove(fromX: number, fromY: number, toX: number, toY: number): boolean {
         if (!this.insideCanvas(toX, toY)) { return false; }
     
         const from = this.index(fromX, fromY);
@@ -92,7 +95,7 @@ export class Simulation {
     
         if (this.updated[to]) { return false; }
     
-        if (this.cells[to] === EMPTY) {
+        if (this.cells[to] === Material.Empty) {
             this.moveCell(fromX, fromY, toX, toY);
             return true;
         } else if (this.canDisplace(this.cells[from], this.cells[to])) {
@@ -103,7 +106,7 @@ export class Simulation {
         return false;
     }
 
-    tryMoveIntoEmpty(fromX, fromY, toX, toY) {
+    private tryMoveIntoEmpty(fromX: number, fromY: number, toX: number, toY: number): boolean {
         if (!this.insideCanvas(toX, toY)) { return false; }
     
         const from = this.index(fromX, fromY);
@@ -111,7 +114,7 @@ export class Simulation {
     
         if (this.updated[to]) { return false; }
     
-        if (this.cells[to] === EMPTY) {
+        if (this.cells[to] === Material.Empty) {
             this.moveCell(fromX, fromY, toX, toY);
             return true;
         }
@@ -120,32 +123,35 @@ export class Simulation {
     
     }
 
-    canDisplace(movingMaterial, targetMaterial) {
-        if (!isDisplaceable(targetMaterial)) { return false; }
+    private canDisplace(movingMaterial: Material, targetMaterial: Material): boolean {
+        const moving = MATERIAL_DEFINITIONS[movingMaterial];
+        const target = MATERIAL_DEFINITIONS[targetMaterial];
 
-        return (materialDensity(movingMaterial) > materialDensity(targetMaterial));
+        if (!target.displaceable) { return false; }
+
+        return (moving.density > target.density);
     }
 
-    updateMaterial(x, y) {
+    private updateMaterial(x: number, y: number): void {
         const material = this.cells[this.index(x, y)];
     
         switch (material) {
-            case SAND:
+            case Material.Sand:
                 this.updateSand(x, y);
                 break;
-            case WATER:
-            case OIL:
+            case Material.Water:
+            case Material.Oil:
                 this.updateLiquid(x, y);
                 break;
-            case WALL:
+            case Material.Wall:
                 break;
-            case CONCRETE:
+            case Material.Concrete:
                 this.updateConcrete(x, y);
     
         }
     }
 
-    updateSand(x, y) {
+    private updateSand(x: number, y: number): void {
         const below = y + 1;
 
         if (this.tryMove(x, y, x, below)) { return; }
@@ -156,7 +162,7 @@ export class Simulation {
         if (this.tryMove(x, y, x - firstDir, below)) { return; }
     }
 
-    updateLiquid(x, y) {
+    private updateLiquid(x: number, y: number): void {
         const below = y + 1;
 
         if (this.tryMove(x, y, x, below)) { return; }
@@ -169,29 +175,29 @@ export class Simulation {
         if (this.tryMoveIntoEmpty(x, y, x - firstDir, y)) { return; }
     }
 
-    updateConcrete(x, y) {
+    private updateConcrete(x: number, y: number): void {
         const below = y + 1;
             
-        if (this.getCell(x - 1, y) === CONCRETE && this.getCell(x + 1, y) === CONCRETE) { return; }
+        if (this.getCell(x - 1, y) === Material.Concrete && this.getCell(x + 1, y) === Material.Concrete) { return; }
     
-        this.tryMove(x, y, x, below)
+        this.tryMove(x, y, x, below);
     }
 
-    getCell(x, y) {
-        if (!this.insideCanvas(x, y)) { return false; }
-        return this.cells[this.index(x, y)];
+    getCell(x: number, y: number): Material {
+        if (!this.insideCanvas(x, y)) { return Material.Empty; }
+        return this.cells[this.index(x, y)] as Material;
     }
 
-    setCell(x, y, material) {
+    setCell(x: number, y: number, material: Material): boolean | void {
         if (!this.insideCanvas(x, y)) { return false; }
         this.cells[this.index(x, y)] = material;
     }
 
-    getTickCount() {
+    getTickCount(): number {
         return this.tickCount;
     }
 
-    paintBrush(centerX, centerY, radius, material) {
+    paintBrush(centerX: number, centerY: number, radius: number, material: Material): void {
         for (let dy = -radius; dy <= radius; dy++) {
             for (let dx = -radius; dx <= radius; dx++) {
 
@@ -209,7 +215,7 @@ export class Simulation {
         }
     }
 
-    step() {
+    step(): void {
         this.updated.fill(0);
         this.tickCount++;
 
@@ -219,14 +225,14 @@ export class Simulation {
 
                 if (this.updated[i]) { continue; }
 
-                if (this.cells[i] !== EMPTY) {
+                if (this.cells[i] !== Material.Empty) {
                     this.updateMaterial(x, y);
                 }
             }
         }
     }
 
-    clear() {
-        this.cells.fill(EMPTY);
+    clear(): void {
+        this.cells.fill(Material.Empty);
     }
 }
