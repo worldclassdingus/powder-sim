@@ -4,7 +4,7 @@
 import {
     Material,
     MATERIAL_DEFINITIONS
-} from "./materials.js";
+} from "./Materials";
 
 export class Simulation {
     readonly width: number;
@@ -234,5 +234,6 @@ export class Simulation {
 
     clear(): void {
         this.cells.fill(Material.Empty);
+        this.tickCount = 0;
     }
 }
