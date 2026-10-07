@@ -23,7 +23,7 @@ export default function Toolbar({
     onClear,
 }: ToolbarProps) {
     function materialButtonClass(material: Material): string {
-        return(material === selectedMaterial ? "material-button selected" : "material-buton");
+        return(material === selectedMaterial ? "material-button selected" : "material-button");
     }
 
     return (
